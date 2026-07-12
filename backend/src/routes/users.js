@@ -2,6 +2,7 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const { query } = require('../config/database');
 const { authenticateJWT, authorizeRoles } = require('../middleware/auth');
+const { sendWelcomeEmail } = require('../utils/email');
 
 const router = express.Router();
 
@@ -41,7 +42,14 @@ router.post('/', authenticateJWT, authorizeRoles('FLEET_MANAGER'), async (req, r
       RETURNING id, name, email, role, status, driver_id, created_at
     `;
     const result = await query(insertQuery, [name, email, passwordHash, role, userStatus, linkedDriverId]);
-    res.status(201).json(result.rows[0]);
+    const newUser = result.rows[0];
+
+    // Fire welcome email — non-blocking so a mail failure never breaks the API response
+    sendWelcomeEmail(newUser, password).catch(err =>
+      console.error('[SMTP] Welcome email failed for', email, err.message)
+    );
+
+    res.status(201).json(newUser);
   } catch (error) {
     next(error);
   }

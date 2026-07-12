@@ -1,6 +1,7 @@
 const express = require('express');
 const { query } = require('../config/database');
 const { authenticateJWT, authorizeRoles } = require('../middleware/auth');
+const { sendDriverSuspendedEmail } = require('../utils/email');
 
 const router = express.Router();
 
@@ -189,6 +190,15 @@ router.put('/:id/suspend', authenticateJWT, authorizeRoles('SAFETY_OFFICER'), as
       'UPDATE drivers SET status = \'SUSPENDED\', updated_at = NOW() WHERE id = $1 RETURNING *',
       [driverId]
     );
+
+    // Notify fleet managers of the suspension
+    query("SELECT email FROM users WHERE role IN ('FLEET_MANAGER', 'SAFETY_OFFICER') AND status = 'ACTIVE'")
+      .then(r => r.rows.forEach(u =>
+        sendDriverSuspendedEmail(u.email, result.rows[0]).catch(err =>
+          console.error('[SMTP] Suspend email failed:', err.message)
+        )
+      ))
+      .catch(e => console.error('[SMTP] Could not query managers for suspend email:', e.message));
 
     res.json(result.rows[0]);
   } catch (error) {

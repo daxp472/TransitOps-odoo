@@ -1,6 +1,7 @@
 const express = require('express');
 const { pool, query } = require('../config/database');
 const { authenticateJWT, authorizeRoles } = require('../middleware/auth');
+const { sendMaintenanceStartedEmail, sendMaintenanceCompletedEmail } = require('../utils/email');
 
 const router = express.Router();
 
@@ -59,6 +60,21 @@ router.post('/', authenticateJWT, authorizeRoles('FLEET_MANAGER', 'DISPATCHER'),
     await client.query('UPDATE vehicles SET status = \'IN_SHOP\', updated_at = NOW() WHERE id = $1', [vehicle_id]);
 
     await client.query('COMMIT');
+
+    // Notify fleet managers that a vehicle has entered maintenance
+    try {
+      const managersRes = await query(
+        "SELECT email FROM users WHERE role IN ('FLEET_MANAGER', 'DISPATCHER') AND status = 'ACTIVE' LIMIT 3"
+      );
+      managersRes.rows.forEach(u =>
+        sendMaintenanceStartedEmail(u.email, vehicle, maintRes.rows[0]).catch(err =>
+          console.error('[SMTP] Maintenance start email failed:', err.message)
+        )
+      );
+    } catch (e) {
+      console.error('[SMTP] Could not send maintenance start email:', e.message);
+    }
+
     res.status(201).json(maintRes.rows[0]);
   } catch (error) {
     await client.query('ROLLBACK');
@@ -118,6 +134,22 @@ router.post('/:id/complete', authenticateJWT, authorizeRoles('FLEET_MANAGER', 'D
     );
 
     await client.query('COMMIT');
+
+    // Notify fleet managers that vehicle is back in service
+    try {
+      const managersRes = await query(
+        "SELECT email FROM users WHERE role IN ('FLEET_MANAGER', 'DISPATCHER') AND status = 'ACTIVE' LIMIT 3"
+      );
+      const completedMaint = { ...maint, end_date: resolvedEndDate, maintenance_cost: cost };
+      managersRes.rows.forEach(u =>
+        sendMaintenanceCompletedEmail(u.email, vehicle, completedMaint).catch(err =>
+          console.error('[SMTP] Maintenance complete email failed:', err.message)
+        )
+      );
+    } catch (e) {
+      console.error('[SMTP] Could not send maintenance complete email:', e.message);
+    }
+
     res.json({ message: 'Maintenance completed successfully.' });
   } catch (error) {
     await client.query('ROLLBACK');
