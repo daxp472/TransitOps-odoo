@@ -4,6 +4,7 @@ import { Bell, LogOut, User } from 'lucide-react';
 const ROLE_DISPLAY = {
   FLEET_MANAGER: { label: 'Fleet Manager', color: '#714B67' },
   DISPATCHER: { label: 'Dispatcher', color: '#2B6CB0' },
+  DRIVER: { label: 'Driver', color: '#319795' },
   SAFETY_OFFICER: { label: 'Safety Officer', color: '#2F855A' },
   FINANCIAL_ANALYST: { label: 'Financial Analyst', color: '#B7791F' },
 };

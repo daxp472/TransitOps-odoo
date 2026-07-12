@@ -35,7 +35,7 @@ const TripDispatchWizard = ({ vehicles, drivers, onSuccess, onClose }) => {
   const [step, setStep] = useState(1);
   const [form, setForm] = useState({
     source: '', destination: '', cargo_description: '',
-    cargo_weight: '', planned_distance: '', vehicle_id: '', driver_id: '',
+    cargo_weight: '', planned_distance: '', vehicle_id: '', driver_id: '', revenue: '',
   });
   const [recommendations, setRecommendations] = useState(null);
   const [recLoading, setRecLoading] = useState(false);
@@ -79,6 +79,7 @@ const TripDispatchWizard = ({ vehicles, drivers, onSuccess, onClose }) => {
         planned_distance: Number(form.planned_distance),
         vehicle_id: Number(form.vehicle_id),
         driver_id: Number(form.driver_id),
+        revenue: form.revenue ? Number(form.revenue) : 0,
       });
       setTripId(res.trip?.id || res.id);
       setStep(3);
@@ -142,7 +143,7 @@ const TripDispatchWizard = ({ vehicles, drivers, onSuccess, onClose }) => {
               <input value={form.destination} onChange={e => set('destination', e.target.value)} placeholder="e.g. Pune" required />
             </div>
           </div>
-          <div className="grid grid-cols-2">
+          <div className="grid grid-cols-3">
             <div>
               <label>Cargo Weight (kg) *</label>
               <input type="number" value={form.cargo_weight} onChange={e => set('cargo_weight', e.target.value)} min={0} required />
@@ -150,6 +151,10 @@ const TripDispatchWizard = ({ vehicles, drivers, onSuccess, onClose }) => {
             <div>
               <label>Distance (km) *</label>
               <input type="number" value={form.planned_distance} onChange={e => set('planned_distance', e.target.value)} min={1} required />
+            </div>
+            <div>
+              <label>Planned Revenue (₹)</label>
+              <input type="number" value={form.revenue} onChange={e => set('revenue', e.target.value)} min={0} placeholder="Optional" />
             </div>
           </div>
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '8px' }}>
@@ -392,7 +397,7 @@ const Trips = ({ userRole }) => {
   const [showWizard, setShowWizard] = useState(false);
   const [completingTrip, setCompletingTrip] = useState(null);
 
-  const canDispatch = userRole === 'DISPATCHER';
+  const canDispatch = ['DISPATCHER', 'FLEET_MANAGER'].includes(userRole);
 
   const load = async () => {
     setLoading(true);
@@ -433,6 +438,19 @@ const Trips = ({ userRole }) => {
 
   return (
     <div>
+      {/* Read-Only Banner for compliance / analytics roles */}
+      {!canDispatch && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: '10px',
+          padding: '12px 16px', backgroundColor: 'rgba(197,139,50,0.08)',
+          border: '1px solid rgba(197,139,50,0.2)', borderRadius: '2px',
+          color: 'var(--accent-color)', fontSize: '13px', marginBottom: '16px'
+        }}>
+          <AlertCircle size={15} />
+          <strong>Read-Only View:</strong> Your role ({userRole?.replace(/_/g, ' ')}) has view-only access to dispatched trips.
+        </div>
+      )}
+
       {/* Stats Strip */}
       <div className="grid grid-cols-4" style={{ marginBottom: '16px' }}>
         {Object.entries(statusCounts).map(([s, c]) => (

@@ -140,8 +140,12 @@ const Drivers = ({ userRole }) => {
   const [selected, setSelected] = useState(null);
   const [scoreEdit, setScoreEdit] = useState({ show: false, id: null, score: 100 });
 
-  const canManage = userRole === 'SAFETY_OFFICER' || userRole === 'FLEET_MANAGER';
-  const canSuspend = userRole === 'SAFETY_OFFICER';
+  const isFleetManager = userRole === 'FLEET_MANAGER';
+  const isSafetyOfficer = userRole === 'SAFETY_OFFICER';
+  const canAddOrDelete = isFleetManager;
+  const canEditDetails = isFleetManager || isSafetyOfficer;
+  const canScoreOrSuspend = isSafetyOfficer || isFleetManager;
+  const isReadOnly = !isFleetManager && !isSafetyOfficer;
 
   const load = async () => {
     setLoading(true);
@@ -190,12 +194,36 @@ const Drivers = ({ userRole }) => {
     }
   };
 
+  const handleDelete = async (d) => {
+    if (!window.confirm(`Delete driver ${d.name}? This cannot be undone.`)) return;
+    try {
+      await api.deleteDriver(d.id);
+      setSelected(null);
+      await load();
+    } catch (e) {
+      alert(e.message);
+    }
+  };
+
   const expiredCount = drivers.filter(d => d.license_validity === 'EXPIRED').length;
   const expiringCount = drivers.filter(d => d.license_validity === 'EXPIRING_SOON').length;
   const suspendedCount = drivers.filter(d => d.status === 'SUSPENDED').length;
 
   return (
     <div>
+      {/* Read-Only Alert for other roles */}
+      {isReadOnly && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: '10px',
+          padding: '12px 16px', backgroundColor: 'rgba(197,139,50,0.08)',
+          border: '1px solid rgba(197,139,50,0.2)', borderRadius: '2px',
+          color: 'var(--accent-color)', fontSize: '13px', marginBottom: '16px'
+        }}>
+          <ShieldAlert size={15} />
+          <strong>Read-Only View:</strong> Your role ({userRole?.replace(/_/g, ' ')}) has view-only access to driver records.
+        </div>
+      )}
+
       {/* Alert Strip */}
       {(expiredCount > 0 || expiringCount > 0) && (
         <div style={{
@@ -239,13 +267,13 @@ const Drivers = ({ userRole }) => {
             style={{ paddingLeft: '32px' }}
           />
         </div>
-        <select value={licenseFilter} onChange={e => setLicenseFilter(e.target.value)} style={{ width: '200px' }}>
+         <select value={licenseFilter} onChange={e => setLicenseFilter(e.target.value)} style={{ width: '200px' }}>
           <option value="">All License Statuses</option>
           <option value="VALID">Valid</option>
           <option value="EXPIRING_SOON">Expiring Soon</option>
           <option value="EXPIRED">Expired</option>
         </select>
-        {canManage && (
+        {canAddOrDelete && (
           <button className="btn btn-primary" onClick={() => { setEditing(null); setShowModal(true); }}>
             <Plus size={14} /> Add Driver
           </button>
@@ -287,13 +315,13 @@ const Drivers = ({ userRole }) => {
                   <th>License Status</th>
                   <th>Safety Score</th>
                   <th>Status</th>
-                  {canManage && <th>Actions</th>}
+                  {canEditDetails && <th>Actions</th>}
                 </tr>
               </thead>
               <tbody>
-                {loading && <tr><td colSpan={canManage ? 8 : 7} style={{ textAlign: 'center', color: 'var(--text-muted)' }}>Loading…</td></tr>}
+                {loading && <tr><td colSpan={canEditDetails ? 8 : 7} style={{ textAlign: 'center', color: 'var(--text-muted)' }}>Loading…</td></tr>}
                 {!loading && filtered.length === 0 && (
-                  <tr><td colSpan={canManage ? 8 : 7} style={{ textAlign: 'center', color: 'var(--text-muted)' }}>No drivers found.</td></tr>
+                  <tr><td colSpan={canEditDetails ? 8 : 7} style={{ textAlign: 'center', color: 'var(--text-muted)' }}>No drivers found.</td></tr>
                 )}
                 {filtered.map(d => (
                   <tr key={d.id} onClick={() => setSelected(d)} style={{ cursor: 'pointer' }}>
@@ -312,7 +340,7 @@ const Drivers = ({ userRole }) => {
                         {d.status}
                       </span>
                     </td>
-                    {canManage && (
+                    {canEditDetails && (
                       <td>
                         <button
                           className="btn btn-secondary"
@@ -355,17 +383,16 @@ const Drivers = ({ userRole }) => {
               ))}
             </dl>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '16px' }}>
-              {canSuspend && (
+              {canScoreOrSuspend && (
                 <button
                   className={selected.status === 'SUSPENDED' ? 'btn btn-secondary' : 'btn btn-danger'}
-                  style={{ width: '100%' }}
+                  style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
                   onClick={() => handleSuspend(selected)}
                 >
-                  {selected.status === 'SUSPENDED' ? <Shield size={12} /> : <ShieldOff size={12} />}
-                  {selected.status === 'SUSPENDED' ? 'Unsuspend' : 'Suspend'}
+                  {selected.status === 'SUSPENDED' ? '✓ Unsuspend Driver' : '⚠ Suspend Driver'}
                 </button>
               )}
-              {canSuspend && (
+              {canScoreOrSuspend && (
                 <button
                   className="btn btn-secondary"
                   style={{ width: '100%' }}
@@ -374,9 +401,14 @@ const Drivers = ({ userRole }) => {
                   Update Safety Score
                 </button>
               )}
-              {!canSuspend && canManage && (
-                <button className="btn btn-secondary" style={{ width: '100%' }} onClick={() => { setEditing(selected); setShowModal(true); }}>
-                  <Edit2 size={12} /> Edit Driver
+              {canEditDetails && (
+                <button className="btn btn-secondary" style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }} onClick={() => { setEditing(selected); setShowModal(true); }}>
+                  <Edit2 size={12} /> Edit Driver Details
+                </button>
+              )}
+              {canAddOrDelete && (
+                <button className="btn btn-danger" style={{ width: '100%' }} onClick={() => handleDelete(selected)}>
+                  Delete Driver Profile
                 </button>
               )}
             </div>

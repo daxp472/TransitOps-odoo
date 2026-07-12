@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, X, Edit2 } from 'lucide-react';
+import { Plus, Search, X, Edit2, AlertCircle } from 'lucide-react';
 import { api } from '../api';
 
 const STATUS_OPTIONS = ['AVAILABLE', 'ON_TRIP', 'IN_SHOP', 'RETIRED'];
@@ -182,6 +182,19 @@ const Vehicles = ({ userRole }) => {
 
   return (
     <div>
+      {/* Read-Only Alert for other roles */}
+      {userRole !== 'FLEET_MANAGER' && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: '10px',
+          padding: '12px 16px', backgroundColor: 'rgba(197,139,50,0.08)',
+          border: '1px solid rgba(197,139,50,0.2)', borderRadius: '2px',
+          color: 'var(--accent-color)', fontSize: '13px', marginBottom: '16px'
+        }}>
+          <AlertCircle size={15} />
+          <strong>Read-Only View:</strong> Your role ({userRole?.replace(/_/g, ' ')}) has view-only access to the vehicle registry.
+        </div>
+      )}
+
       {/* Toolbar */}
       <div style={{ display: 'flex', gap: '10px', marginBottom: '16px', alignItems: 'center' }}>
         <div style={{ position: 'relative', flex: 1, maxWidth: '320px' }}>

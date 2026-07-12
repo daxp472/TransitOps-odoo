@@ -15,11 +15,12 @@ const Sidebar = ({ activeTab, setActiveTab, userRole }) => {
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['FLEET_MANAGER', 'DISPATCHER', 'SAFETY_OFFICER', 'FINANCIAL_ANALYST'] },
     { id: 'vehicles', label: 'Vehicles', icon: Truck, roles: ['FLEET_MANAGER', 'DISPATCHER', 'SAFETY_OFFICER', 'FINANCIAL_ANALYST'] },
     { id: 'drivers', label: 'Drivers', icon: Users, roles: ['FLEET_MANAGER', 'DISPATCHER', 'SAFETY_OFFICER', 'FINANCIAL_ANALYST'] },
-    { id: 'trips', label: 'Trips', icon: Navigation, roles: ['DISPATCHER', 'FLEET_MANAGER'] },
-    { id: 'maintenance', label: 'Maintenance', icon: Wrench, roles: ['FLEET_MANAGER', 'DISPATCHER'] },
+    { id: 'trips', label: 'Trips', icon: Navigation, roles: ['DISPATCHER', 'FLEET_MANAGER', 'SAFETY_OFFICER', 'FINANCIAL_ANALYST'] },
+    { id: 'maintenance', label: 'Maintenance', icon: Wrench, roles: ['FLEET_MANAGER', 'DISPATCHER', 'SAFETY_OFFICER'] },
     { id: 'expenses', label: 'Expenses', icon: Fuel, roles: ['FINANCIAL_ANALYST', 'FLEET_MANAGER'] },
     { id: 'reports', label: 'Reports & Analytics', icon: BarChart3, roles: ['FINANCIAL_ANALYST', 'FLEET_MANAGER'] },
-    { id: 'users', label: 'Users & Roles', icon: ShieldAlert, roles: ['FLEET_MANAGER'] }
+    { id: 'users', label: 'Users & Roles', icon: ShieldAlert, roles: ['FLEET_MANAGER'] },
+    { id: 'driverTrips', label: 'My Assigned Trips', icon: Navigation, roles: ['DRIVER'] }
   ];
 
   // Filter menu items by user role

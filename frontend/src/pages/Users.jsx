@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { Plus, X, Trash2 } from 'lucide-react';
 import { api } from '../api';
 
-const ROLES = ['FLEET_MANAGER', 'DISPATCHER', 'SAFETY_OFFICER', 'FINANCIAL_ANALYST'];
+const ROLES = ['FLEET_MANAGER', 'DISPATCHER', 'DRIVER', 'SAFETY_OFFICER', 'FINANCIAL_ANALYST'];
 
 const ROLE_COLORS = {
   FLEET_MANAGER: '#714B67',
   DISPATCHER: '#2B6CB0',
+  DRIVER: '#319795',
   SAFETY_OFFICER: '#2F855A',
   FINANCIAL_ANALYST: '#B7791F',
 };
@@ -37,12 +38,13 @@ const Modal = ({ title, onClose, children }) => (
 
 const Users = () => {
   const [users, setUsers] = useState([]);
+  const [drivers, setDrivers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
 
-  const [form, setForm] = useState({ name: '', email: '', password: '', role: 'DISPATCHER' });
+  const [form, setForm] = useState({ name: '', email: '', password: '', role: 'DISPATCHER', driver_id: '' });
   const [formError, setFormError] = useState('');
   const [formLoading, setFormLoading] = useState(false);
 
@@ -51,8 +53,12 @@ const Users = () => {
   const load = async () => {
     setLoading(true);
     try {
-      const res = await api.getUsers();
-      setUsers(res.users || res);
+      const [usersRes, driversRes] = await Promise.all([
+        api.getUsers(),
+        api.getDrivers()
+      ]);
+      setUsers(usersRes.users || usersRes);
+      setDrivers(driversRes.drivers || driversRes);
     } catch (e) {
       setError(e.message);
     } finally {
@@ -67,16 +73,22 @@ const Users = () => {
     setFormError('');
     setFormLoading(true);
     try {
+      const payload = { 
+        name: form.name, 
+        email: form.email, 
+        role: form.role,
+        driver_id: form.role === 'DRIVER' && form.driver_id ? Number(form.driver_id) : null
+      };
       if (editing) {
-        const payload = { name: form.name, email: form.email, role: form.role };
         if (form.password) payload.password = form.password;
         await api.updateUser(editing.id, payload);
       } else {
-        await api.createUser(form);
+        payload.password = form.password;
+        await api.createUser(payload);
       }
       setShowModal(false);
       setEditing(null);
-      setForm({ name: '', email: '', password: '', role: 'DISPATCHER' });
+      setForm({ name: '', email: '', password: '', role: 'DISPATCHER', driver_id: '' });
       await load();
     } catch (e) {
       setFormError(e.message);
@@ -97,14 +109,14 @@ const Users = () => {
 
   const openEdit = (u) => {
     setEditing(u);
-    setForm({ name: u.name, email: u.email, password: '', role: u.role });
+    setForm({ name: u.name, email: u.email, password: '', role: u.role, driver_id: u.driver_id || '' });
     setFormError('');
     setShowModal(true);
   };
 
   const openCreate = () => {
     setEditing(null);
-    setForm({ name: '', email: '', password: '', role: 'DISPATCHER' });
+    setForm({ name: '', email: '', password: '', role: 'DISPATCHER', driver_id: '' });
     setFormError('');
     setShowModal(true);
   };
@@ -114,7 +126,7 @@ const Users = () => {
   return (
     <div>
       {/* Role Summary Strip */}
-      <div className="grid grid-cols-4" style={{ marginBottom: '16px' }}>
+      <div className="grid grid-cols-5" style={{ marginBottom: '16px' }}>
         {ROLES.map(role => (
           <div key={role} className="card" style={{ padding: '12px 14px', borderLeft: `3px solid ${ROLE_COLORS[role]}` }}>
             <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '4px' }}>
@@ -153,61 +165,71 @@ const Users = () => {
             {!loading && users.length === 0 && (
               <tr><td colSpan={6} style={{ textAlign: 'center', color: 'var(--text-muted)' }}>No users found.</td></tr>
             )}
-            {users.map(u => (
-              <tr key={u.id}>
-                <td style={{ fontFamily: 'monospace', fontSize: '12px' }}>{u.id}</td>
-                <td style={{ fontWeight: '500' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <div style={{
-                      width: '28px', height: '28px', borderRadius: '2px',
-                      backgroundColor: ROLE_COLORS[u.role] || 'var(--primary-color)',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      color: '#fff', fontWeight: '700', fontSize: '12px', flexShrink: 0
-                    }}>
-                      {u.name?.[0]?.toUpperCase()}
-                    </div>
-                    {u.name}
-                  </div>
-                </td>
-                <td style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{u.email}</td>
-                <td>
-                  <span style={{
-                    display: 'inline-flex', alignItems: 'center',
-                    padding: '3px 8px', fontSize: '11px', fontWeight: '600',
-                    borderRadius: '2px', textTransform: 'uppercase', letterSpacing: '0.3px',
-                    backgroundColor: `${ROLE_COLORS[u.role]}22`,
-                    color: ROLE_COLORS[u.role],
-                    border: `1px solid ${ROLE_COLORS[u.role]}44`
-                  }}>
-                    {u.role?.replace(/_/g, ' ')}
-                  </span>
-                </td>
-                <td style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                  {u.created_at ? new Date(u.created_at).toLocaleDateString() : '—'}
-                </td>
-                <td>
-                  <div style={{ display: 'flex', gap: '6px' }}>
-                    <button
-                      className="btn btn-secondary"
-                      style={{ padding: '4px 8px', fontSize: '12px' }}
-                      onClick={() => openEdit(u)}
-                    >
-                      Edit
-                    </button>
-                    <button
-                      className="btn btn-danger"
-                      style={{ padding: '4px 8px', fontSize: '12px' }}
-                      onClick={() => handleDelete(u)}
-                    >
-                      <Trash2 size={12} />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+              {users.map(u => {
+                const linkedDriver = drivers.find(d => d.id === u.driver_id);
+                return (
+                  <tr key={u.id}>
+                    <td style={{ fontFamily: 'monospace', fontSize: '12px' }}>{u.id}</td>
+                    <td style={{ fontWeight: '500' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div style={{
+                          width: '28px', height: '28px', borderRadius: '2px',
+                          backgroundColor: ROLE_COLORS[u.role] || 'var(--primary-color)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          color: '#fff', fontWeight: '700', fontSize: '12px', flexShrink: 0
+                        }}>
+                          {u.name?.[0]?.toUpperCase()}
+                        </div>
+                        <div>
+                          <div>{u.name}</div>
+                          {linkedDriver && (
+                            <div style={{ fontSize: '10px', color: '#319795', fontWeight: '400', marginTop: '2px' }}>
+                              Linked: {linkedDriver.name} ({linkedDriver.license_number})
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </td>
+                    <td style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{u.email}</td>
+                    <td>
+                      <span style={{
+                        display: 'inline-flex', alignItems: 'center',
+                        padding: '3px 8px', fontSize: '11px', fontWeight: '600',
+                        borderRadius: '2px', textTransform: 'uppercase', letterSpacing: '0.3px',
+                        backgroundColor: `${ROLE_COLORS[u.role]}22`,
+                        color: ROLE_COLORS[u.role],
+                        border: `1px solid ${ROLE_COLORS[u.role]}44`
+                      }}>
+                        {u.role?.replace(/_/g, ' ')}
+                      </span>
+                    </td>
+                    <td style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                      {u.created_at ? new Date(u.created_at).toLocaleDateString() : '—'}
+                    </td>
+                    <td>
+                      <div style={{ display: 'flex', gap: '6px' }}>
+                        <button
+                          className="btn btn-secondary"
+                          style={{ padding: '4px 8px', fontSize: '12px' }}
+                          onClick={() => openEdit(u)}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          className="btn btn-danger"
+                          style={{ padding: '4px 8px', fontSize: '12px' }}
+                          onClick={() => handleDelete(u)}
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
 
       {/* Create / Edit Modal */}
       {showModal && (
@@ -235,6 +257,23 @@ const Users = () => {
                 </select>
               </div>
             </div>
+  
+            {/* If DRIVER role, allow linking to driver profile */}
+            {form.role === 'DRIVER' && (
+              <div>
+                <label>Link to Driver Profile *</label>
+                <select value={form.driver_id} onChange={e => set('driver_id', e.target.value)} required>
+                  <option value="">-- Select Driver --</option>
+                  {drivers.map(d => (
+                    <option key={d.id} value={d.id}>{d.name} ({d.license_number})</option>
+                  ))}
+                </select>
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                  Links this user login to a physical driver registry profile.
+                </div>
+              </div>
+            )}
+  
             {/* Role preview chip */}
             {form.role && (
               <div style={{

@@ -10,6 +10,7 @@ import Maintenance from './pages/Maintenance';
 import Expenses from './pages/Expenses';
 import Reports from './pages/Reports';
 import Users from './pages/Users';
+import DriverPortal from './pages/DriverPortal';
 import { api } from './api';
 
 const PAGE_LABELS = {
@@ -21,6 +22,7 @@ const PAGE_LABELS = {
   expenses: 'Fuel & Expenses',
   reports: 'Reports & Analytics',
   users: 'Users & Roles',
+  driverTrips: 'My Assigned Trips',
 };
 
 function App() {
@@ -35,7 +37,11 @@ function App() {
       if (token) {
         try {
           const res = await api.me();
-          setUser(res.user || res);
+          const parsedUser = res.user || res;
+          setUser(parsedUser);
+          if (parsedUser.role === 'DRIVER') {
+            setActiveTab('driverTrips');
+          }
         } catch {
           localStorage.removeItem('transitops_token');
         }
@@ -47,7 +53,11 @@ function App() {
 
   const handleLogin = (userData) => {
     setUser(userData);
-    setActiveTab('dashboard');
+    if (userData.role === 'DRIVER') {
+      setActiveTab('driverTrips');
+    } else {
+      setActiveTab('dashboard');
+    }
   };
 
   const handleLogout = () => {
@@ -81,7 +91,8 @@ function App() {
       case 'expenses': return <Expenses userRole={user.role} />;
       case 'reports': return <Reports userRole={user.role} />;
       case 'users': return <Users userRole={user.role} />;
-      default: return <Dashboard userRole={user.role} />;
+      case 'driverTrips': return <DriverPortal user={user} />;
+      default: return user.role === 'DRIVER' ? <DriverPortal user={user} /> : <Dashboard userRole={user.role} />;
     }
   };
 

@@ -5,6 +5,7 @@ import { api } from '../api';
 const TEST_ACCOUNTS = [
   { name: 'kalp', email: 'kalp@transitops.com', role: 'Fleet Manager', color: '#714B67' },
   { name: 'kalpan', email: 'kalpan@transitops.com', role: 'Dispatcher', color: '#2B6CB0' },
+  { name: 'rajan', email: 'rajan@transitops.com', role: 'Driver', color: '#319795' },
   { name: 'aray', email: 'aray@transitops.com', role: 'Safety Officer', color: '#2F855A' },
   { name: 'dax', email: 'dax@transitops.com', role: 'Financial Analyst', color: '#B7791F' },
 ];

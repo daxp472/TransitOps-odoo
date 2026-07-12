@@ -48,7 +48,7 @@ const Maintenance = ({ userRole }) => {
   const [showCreate, setShowCreate] = useState(false);
   const [completing, setCompleting] = useState(null);
 
-  const canManage = userRole === 'FLEET_MANAGER';
+  const canManage = ['FLEET_MANAGER', 'DISPATCHER'].includes(userRole);
 
   const [form, setForm] = useState({
     vehicle_id: '',
@@ -137,6 +137,18 @@ const Maintenance = ({ userRole }) => {
 
   return (
     <div>
+      {/* Read-Only Banner */}
+      {!canManage && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: '10px',
+          padding: '12px 16px', backgroundColor: 'rgba(197,139,50,0.08)',
+          border: '1px solid rgba(197,139,50,0.2)', borderRadius: '2px',
+          color: 'var(--accent-color)', fontSize: '13px', marginBottom: '16px'
+        }}>
+          <strong>Read-Only View:</strong> Your role ({userRole?.replace(/_/g, ' ')}) has read-only access to maintenance logs.
+        </div>
+      )}
+
       {/* Stats Strip */}
       <div className="grid grid-cols-3" style={{ marginBottom: '16px' }}>
         <div className="card" style={{ padding: '12px 14px' }}>

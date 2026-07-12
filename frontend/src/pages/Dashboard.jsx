@@ -69,7 +69,7 @@ const BarChart = ({ data, label, color }) => {
   );
 };
 
-const Dashboard = () => {
+const Dashboard = ({ userRole }) => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -144,6 +144,38 @@ const Dashboard = () => {
         <button className="btn btn-secondary" onClick={load}>
           <RefreshCw size={14} /> Refresh
         </button>
+      </div>
+
+      {/* Role-Aware Welcome & Insights Banner */}
+      <div style={{
+        background: 'linear-gradient(135deg, rgba(113,75,103,0.12) 0%, rgba(43,108,176,0.08) 100%)',
+        border: '1px solid var(--border-color)',
+        borderRadius: '2px',
+        padding: '16px 20px',
+        marginBottom: '16px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '14px'
+      }}>
+        <div style={{
+          width: '38px', height: '38px', borderRadius: '2px',
+          backgroundColor: 'rgba(197,139,50,0.15)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          color: 'var(--accent-color)', fontWeight: 'bold', fontSize: '18px'
+        }}>
+          💡
+        </div>
+        <div>
+          <div style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-main)', fontFamily: 'var(--font-title)' }}>
+            System Insights Panel · Role: {userRole?.replace(/_/g, ' ')}
+          </div>
+          <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '3px', lineHeight: '1.4' }}>
+            {userRole === 'FLEET_MANAGER' && `Monitor vehicle health and maintenance cycles. Current fleet utilization is at ${kpis.fleetUtilization ?? 0}% with ${kpis.vehiclesInMaintenance ?? 0} vehicle(s) in maintenance.`}
+            {userRole === 'DISPATCHER' && `Draft and dispatch trips. There are currently ${kpis.pendingTrips ?? 0} pending (draft) trips that need resources assigned.`}
+            {userRole === 'SAFETY_OFFICER' && `Oversee driver safety. Review driver profiles – ${driverAvailability.suspended ?? 0} driver(s) are suspended. Make sure to monitor safety scores and expiring driving licenses.`}
+            {userRole === 'FINANCIAL_ANALYST' && `Analyze expenses and fuel logging. Ensure all trip details are logged accurately to calculate vehicle ROI and operational costs.`}
+          </div>
+        </div>
       </div>
 
       {error && (

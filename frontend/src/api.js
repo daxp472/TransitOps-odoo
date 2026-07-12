@@ -44,6 +44,8 @@ export const api = {
     fetch(`${API_BASE}/drivers/${id}/unsuspend`, { method: 'PUT', headers: headers() }).then(handleResponse),
   updateSafetyScore: (id, safety_score) =>
     fetch(`${API_BASE}/drivers/${id}/safety-score`, { method: 'PUT', headers: headers(), body: JSON.stringify({ safety_score }) }).then(handleResponse),
+  deleteDriver: (id) =>
+    fetch(`${API_BASE}/drivers/${id}`, { method: 'DELETE', headers: headers() }).then(handleResponse),
 
   // Trips
   getTrips: (params = {}) =>
@@ -59,6 +61,8 @@ export const api = {
     fetch(`${API_BASE}/trips/${id}/cancel`, { method: 'POST', headers: headers() }).then(handleResponse),
   recommendResources: (data) =>
     fetch(`${API_BASE}/trips/recommend-resources`, { method: 'POST', headers: headers(), body: JSON.stringify(data) }).then(handleResponse),
+  getMyTrips: () =>
+    fetch(`${API_BASE}/trips/my-trips`, { headers: headers() }).then(handleResponse),
 
   // Maintenance
   getMaintenance: () => fetch(`${API_BASE}/maintenance`, { headers: headers() }).then(handleResponse),
