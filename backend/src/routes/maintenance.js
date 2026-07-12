@@ -19,8 +19,8 @@ router.get('/', authenticateJWT, async (req, res, next) => {
   }
 });
 
-// POST /api/maintenance - Create active maintenance record (FLEET_MANAGER only)
-router.post('/', authenticateJWT, authorizeRoles('FLEET_MANAGER'), async (req, res, next) => {
+// POST /api/maintenance - Create active maintenance record (FLEET_MANAGER + DISPATCHER)
+router.post('/', authenticateJWT, authorizeRoles('FLEET_MANAGER', 'DISPATCHER'), async (req, res, next) => {
   const { vehicle_id, maintenance_type, description, start_date, maintenance_cost } = req.body;
 
   if (!vehicle_id || !maintenance_type || !start_date) {
@@ -72,8 +72,8 @@ router.post('/', authenticateJWT, authorizeRoles('FLEET_MANAGER'), async (req, r
   }
 });
 
-// POST /api/maintenance/:id/complete - Complete maintenance (FLEET_MANAGER only)
-router.post('/:id/complete', authenticateJWT, authorizeRoles('FLEET_MANAGER'), async (req, res, next) => {
+// POST /api/maintenance/:id/complete - Complete maintenance (FLEET_MANAGER + DISPATCHER)
+router.post('/:id/complete', authenticateJWT, authorizeRoles('FLEET_MANAGER', 'DISPATCHER'), async (req, res, next) => {
   const maintId = parseInt(req.params.id);
   const { end_date, maintenance_cost } = req.body;
 

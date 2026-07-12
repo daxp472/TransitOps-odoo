@@ -48,6 +48,34 @@ router.get('/', authenticateJWT, async (req, res, next) => {
   }
 });
 
+// GET /api/trips/my-trips - DRIVER sees only their own assigned trips
+router.get('/my-trips', authenticateJWT, authorizeRoles('DRIVER'), async (req, res, next) => {
+  try {
+    // Find the driver entity linked to this user account
+    const userRes = await query('SELECT driver_id FROM users WHERE id = $1', [req.user.userId]);
+    const driverId = userRes.rows[0]?.driver_id;
+    if (!driverId) {
+      return res.status(400).json({ error: 'Your account is not linked to a driver profile. Contact Fleet Manager.' });
+    }
+
+    const result = await query(`
+      SELECT t.*,
+             v.registration_number as vehicle_reg, v.name as vehicle_name,
+             v.model as vehicle_model, v.type as vehicle_type,
+             d.name as driver_name, d.license_number as driver_license
+      FROM trips t
+      LEFT JOIN vehicles v ON t.vehicle_id = v.id
+      LEFT JOIN drivers d ON t.driver_id = d.id
+      WHERE t.driver_id = $1
+      ORDER BY t.id DESC
+    `, [driverId]);
+
+    res.json({ trips: result.rows, driver_id: driverId });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // GET /api/trips/:id - Trip details
 router.get('/:id', authenticateJWT, async (req, res, next) => {
   const tripId = parseInt(req.params.id);
@@ -73,8 +101,8 @@ router.get('/:id', authenticateJWT, async (req, res, next) => {
   }
 });
 
-// POST /api/trips - Create DRAFT trip (DISPATCHER only)
-router.post('/', authenticateJWT, authorizeRoles('DISPATCHER'), async (req, res, next) => {
+// POST /api/trips - Create DRAFT trip (DISPATCHER + FLEET_MANAGER)
+router.post('/', authenticateJWT, authorizeRoles('DISPATCHER', 'FLEET_MANAGER'), async (req, res, next) => {
   const { source, destination, cargo_weight, planned_distance, vehicle_id, driver_id, revenue } = req.body;
 
   if (!source || !destination || !cargo_weight || !planned_distance || !vehicle_id || !driver_id) {
@@ -101,8 +129,8 @@ router.post('/', authenticateJWT, authorizeRoles('DISPATCHER'), async (req, res,
   }
 });
 
-// POST /api/trips/:id/dispatch - Dispatch Trip (DISPATCHER only) - CONCURRENT ATOMIC TRANSACTION
-router.post('/:id/dispatch', authenticateJWT, authorizeRoles('DISPATCHER'), async (req, res, next) => {
+// POST /api/trips/:id/dispatch - Dispatch Trip (DISPATCHER + FLEET_MANAGER) - CONCURRENT ATOMIC TRANSACTION
+router.post('/:id/dispatch', authenticateJWT, authorizeRoles('DISPATCHER', 'FLEET_MANAGER'), async (req, res, next) => {
   const tripId = parseInt(req.params.id);
   const client = await pool.connect();
 
@@ -215,8 +243,8 @@ router.post('/:id/dispatch', authenticateJWT, authorizeRoles('DISPATCHER'), asyn
   }
 });
 
-// POST /api/trips/:id/complete - Complete Trip (DISPATCHER only)
-router.post('/:id/complete', authenticateJWT, authorizeRoles('DISPATCHER'), async (req, res, next) => {
+// POST /api/trips/:id/complete - Complete Trip (DISPATCHER + FLEET_MANAGER + DRIVER)
+router.post('/:id/complete', authenticateJWT, authorizeRoles('DISPATCHER', 'FLEET_MANAGER', 'DRIVER'), async (req, res, next) => {
   const tripId = parseInt(req.params.id);
   const { final_odometer, fuel_consumed } = req.body;
 
@@ -230,10 +258,17 @@ router.post('/:id/complete', authenticateJWT, authorizeRoles('DISPATCHER'), asyn
 
     // 1. Get the trip
     const tripRes = await client.query('SELECT * FROM trips WHERE id = $1 FOR UPDATE', [tripId]);
-    if (tripRes.rows.length === 0) {
-      throw { status: 404, message: 'Trip not found.' };
-    }
+    if (tripRes.rows.length === 0) { throw { status: 404, message: 'Trip not found.' }; }
     const trip = tripRes.rows[0];
+
+    // If DRIVER, validate they own this trip
+    if (req.user.role === 'DRIVER') {
+      const userRes = await client.query('SELECT driver_id FROM users WHERE id = $1', [req.user.userId]);
+      const myDriverId = userRes.rows[0]?.driver_id;
+      if (!myDriverId || trip.driver_id !== myDriverId) {
+        throw { status: 403, message: 'You can only complete trips assigned to you.' };
+      }
+    }
 
     if (trip.status !== 'DISPATCHED') {
       throw { status: 400, message: 'Only dispatched trips can be completed.' };
@@ -293,8 +328,8 @@ router.post('/:id/complete', authenticateJWT, authorizeRoles('DISPATCHER'), asyn
   }
 });
 
-// POST /api/trips/:id/cancel - Cancel Trip (DISPATCHER only)
-router.post('/:id/cancel', authenticateJWT, authorizeRoles('DISPATCHER'), async (req, res, next) => {
+// POST /api/trips/:id/cancel - Cancel Trip (DISPATCHER + FLEET_MANAGER)
+router.post('/:id/cancel', authenticateJWT, authorizeRoles('DISPATCHER', 'FLEET_MANAGER'), async (req, res, next) => {
   const tripId = parseInt(req.params.id);
   const client = await pool.connect();
 
@@ -341,8 +376,8 @@ router.post('/:id/cancel', authenticateJWT, authorizeRoles('DISPATCHER'), async 
   }
 });
 
-// POST /api/trips/recommend-resources - Smart Dispatch Recommendation (DISPATCHER only)
-router.post('/recommend-resources', authenticateJWT, authorizeRoles('DISPATCHER'), async (req, res, next) => {
+// POST /api/trips/recommend-resources - Smart Dispatch Recommendation (DISPATCHER + FLEET_MANAGER)
+router.post('/recommend-resources', authenticateJWT, authorizeRoles('DISPATCHER', 'FLEET_MANAGER'), async (req, res, next) => {
   const { cargo_weight, planned_distance } = req.body;
 
   if (cargo_weight === undefined || planned_distance === undefined) {
