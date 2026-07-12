@@ -1,6 +1,11 @@
 const express = require('express');
 const { pool, query } = require('../config/database');
 const { authenticateJWT, authorizeRoles } = require('../middleware/auth');
+const {
+  sendTripDispatchedEmail,
+  sendTripCompletedEmail,
+  sendTripCancelledEmail,
+} = require('../utils/email');
 
 const router = express.Router();
 
@@ -270,6 +275,22 @@ router.post('/:id/dispatch', authenticateJWT, authorizeRoles('DISPATCHER', 'FLEE
     await client.query('UPDATE drivers SET status = \'ON_TRIP\', updated_at = NOW() WHERE id = $1', [driver.id]);
 
     await client.query('COMMIT');
+
+    // Send trip-dispatched email to driver (look up linked user account email)
+    try {
+      const driverUserRes = await query(
+        'SELECT u.email FROM users u WHERE u.driver_id = $1 LIMIT 1',
+        [driver.id]
+      );
+      if (driverUserRes.rows.length > 0) {
+        sendTripDispatchedEmail(driverUserRes.rows[0].email, updatedTrip.rows[0], vehicle, driver).catch(err =>
+          console.error('[SMTP] Dispatch email failed:', err.message)
+        );
+      }
+    } catch (e) {
+      console.error('[SMTP] Could not send dispatch email:', e.message);
+    }
+
     res.json(updatedTrip.rows[0]);
   } catch (error) {
     await client.query('ROLLBACK');
@@ -355,6 +376,22 @@ router.post('/:id/complete', authenticateJWT, authorizeRoles('DISPATCHER', 'FLEE
     );
 
     await client.query('COMMIT');
+
+    // Send trip-completed email — find the dispatcher/manager who can see reports
+    try {
+      const managersRes = await query(
+        "SELECT email FROM users WHERE role IN ('FLEET_MANAGER', 'DISPATCHER') AND status = 'ACTIVE' LIMIT 3"
+      );
+      const completedTrip = { ...trip, final_odometer, fuel_consumed };
+      managersRes.rows.forEach(u =>
+        sendTripCompletedEmail(u.email, completedTrip, driver, vehicle, distanceTravelled).catch(err =>
+          console.error('[SMTP] Complete email failed:', err.message)
+        )
+      );
+    } catch (e) {
+      console.error('[SMTP] Could not send completion email:', e.message);
+    }
+
     res.json({ message: 'Trip completed successfully.', distanceTravelled });
   } catch (error) {
     await client.query('ROLLBACK');
@@ -403,6 +440,21 @@ router.post('/:id/cancel', authenticateJWT, authorizeRoles('DISPATCHER', 'FLEET_
     );
 
     await client.query('COMMIT');
+
+    // Send cancellation email to dispatcher/manager
+    try {
+      const managersRes = await query(
+        "SELECT email FROM users WHERE role IN ('FLEET_MANAGER', 'DISPATCHER') AND status = 'ACTIVE' LIMIT 3"
+      );
+      managersRes.rows.forEach(u =>
+        sendTripCancelledEmail(u.email, cancelledTrip.rows[0]).catch(err =>
+          console.error('[SMTP] Cancel email failed:', err.message)
+        )
+      );
+    } catch (e) {
+      console.error('[SMTP] Could not send cancellation email:', e.message);
+    }
+
     res.json(cancelledTrip.rows[0]);
   } catch (error) {
     await client.query('ROLLBACK');
